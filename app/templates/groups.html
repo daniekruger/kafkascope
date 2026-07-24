@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Consumer groups &middot; kafkascope{% endblock %}
+{% block content %}
+
+<div class="page-head">
+    <h1>Consumer groups</h1>
+    {% set refresh_url = "/c/" ~ c ~ "/groups/refresh" %}
+    {% set refresh_target = "groups-live" %}
+    {% set refresh_key = "kafkascope-refresh-groups" %}
+    {% include "_autorefresh.html" %}
+</div>
+
+<div id="groups-live">
+    {% include "_groups_table.html" %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,8 @@
+{
+  "event_id": "6f1c2e2a-3b1a-4c8e-9f2a-2b0c1d4e5f6a",
+  "url": "/products/SKU-4410",
+  "referrer": "https://example.com/",
+  "method": "GET",
+  "user": { "id": "u-8842", "anonymous": false },
+  "ts": 1753363271000
+}

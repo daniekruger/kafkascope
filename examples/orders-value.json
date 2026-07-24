@@ -1,0 +1,13 @@
+{
+  "order_id": 100342,
+  "customer": "ava@example.com",
+  "status": "SHIPPED",
+  "total": 58.9,
+  "currency": "USD",
+  "items": [
+    { "sku": "SKU-4410", "qty": 2 },
+    { "sku": "SKU-1120", "qty": 1 }
+  ],
+  "notes": "leave at the front door",
+  "created_at": 1753363271000
+}

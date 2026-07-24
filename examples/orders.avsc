@@ -1,0 +1,36 @@
+{
+  "type": "record",
+  "name": "Order",
+  "namespace": "shop.orders",
+  "doc": "A customer order — the Avro example for kafkascope's schema-aware produce.",
+  "fields": [
+    { "name": "order_id", "type": "long" },
+    { "name": "customer", "type": "string" },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "Status",
+        "symbols": ["PLACED", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"]
+      }
+    },
+    { "name": "total", "type": "double" },
+    { "name": "currency", "type": "string", "default": "USD" },
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "LineItem",
+          "fields": [
+            { "name": "sku", "type": "string" },
+            { "name": "qty", "type": "int" }
+          ]
+        }
+      }
+    },
+    { "name": "notes", "type": ["null", "string"], "default": null },
+    { "name": "created_at", "type": "long", "doc": "epoch milliseconds" }
+  ]
+}

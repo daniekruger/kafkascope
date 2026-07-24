@@ -1,0 +1,33 @@
+{# The refreshable part of a topic page: message count and the partition offsets.
+   Config and admin forms are deliberately outside this region so a refresh never
+   disturbs a half-edited config or a typed purge/delete confirmation. #}
+<p class="count-line">{{ topic.size | thousands }} message(s) across {{ topic.partitions | length }} partition(s)</p>
+<section>
+    <h2>Partitions</h2>
+    <table>
+        <thead>
+            <tr>
+                <th class="num">Partition</th>
+                <th class="num">Leader</th>
+                <th>Replicas</th>
+                <th>In-sync</th>
+                <th class="num">First offset</th>
+                <th class="num">Last offset</th>
+                <th class="num">Messages</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for p in topic.partitions %}
+            <tr{% if p.under_replicated %} class="warn-row"{% endif %}>
+                <td class="num">{{ p.id }}</td>
+                <td class="num">{{ p.leader }}</td>
+                <td>{{ p.replicas | join(', ') }}</td>
+                <td>{{ p.isrs | join(', ') }}</td>
+                <td class="num">{{ p.low | thousands }}</td>
+                <td class="num">{{ p.high | thousands }}</td>
+                <td class="num">{{ p.size | thousands }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>

@@ -1,0 +1,29 @@
+<article class="msg" data-partition="{{ msg.partition }}" data-offset="{{ msg.offset }}">
+    <header class="msg-head">
+        <span class="coord">p{{ msg.partition }}</span>
+        <span class="coord">@{{ msg.offset }}</span>
+        <span class="when">{{ msg.when }}</span>
+        {% if msg.key is not none %}<span class="msg-key" title="key">{{ msg.key }}</span>
+        {% else %}<span class="msg-key muted">(null key)</span>{% endif %}
+        {% if msg.is_tombstone %}<span class="badge warn">tombstone</span>{% endif %}
+        {% if msg.schema_id is not none %}<span class="badge" title="decoded via schema registry">{{ msg.encoding }} #{{ msg.schema_id }}</span>{% endif %}
+        {% if msg.binary %}<span class="badge muted">base64</span>{% endif %}
+        <span class="size">{{ msg.size }} B</span>
+        {% if can_write %}
+        <a class="resend" title="Open in the producer, prefilled"
+           href="/c/{{ c }}/topic/{{ topic | urlencode }}/produce?source={{ msg.partition }}:{{ msg.offset }}">Resend&hellip;</a>
+        {% endif %}
+    </header>
+
+    {% if msg.headers %}
+    <div class="msg-headers">
+        {% for k, v in msg.headers %}<span class="hdr"><b>{{ k }}</b>={{ v }}</span>{% endfor %}
+    </div>
+    {% endif %}
+
+    {% if msg.is_tombstone %}
+        <pre class="msg-body muted">null — this key is marked for compaction</pre>
+    {% else %}
+        <pre class="msg-body">{{ msg.pretty or msg.value }}</pre>
+    {% endif %}
+</article>

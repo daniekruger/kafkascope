@@ -1,0 +1,27 @@
+{# The refreshable part of the groups list: the count and the table. Rendered inline
+   and returned on its own by /groups/refresh, so auto-refresh swaps just this region.
+   The per-group total-lag cells keep their lazy `revealed` trigger, so after each swap
+   only the rows actually on screen re-fetch their lag. #}
+<p class="count-line">{{ groups | length }} group{{ '' if groups | length == 1 else 's' }}</p>
+{% if groups %}
+<table>
+    <thead>
+        <tr><th>Group</th><th>State</th><th class="num">Members</th><th class="num">Total lag</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for g in groups %}
+        <tr>
+            <td><a href="/c/{{ c }}/group/{{ g.id | urlencode }}">{{ g.id }}</a></td>
+            <td><span class="badge state-{{ g.state | lower }}">{{ g.state | lower }}</span></td>
+            <td class="num">{{ g.members }}</td>
+            <td class="num"><span hx-get="/c/{{ c }}/group/{{ g.id | urlencode }}/lag"
+                                  hx-trigger="revealed" hx-swap="innerHTML"
+                                  class="muted">…</span></td>
+            <td>{% if g.is_simple %}<span class="badge muted">simple</span>{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">No consumer groups on this cluster.</p>
+{% endif %}

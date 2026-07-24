@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.name }} messages &middot; kafkascope{% endblock %}
+{% block content %}
+
+<p class="crumb"><a href="/c/{{ c }}/">Topics</a> / <a href="/c/{{ c }}/topic/{{ topic.name | urlencode }}">{{ topic.name }}</a> / messages</p>
+<h1>{{ topic.name }} <span class="count">{{ topic.size | thousands }} messages</span></h1>
+
+{% if can_write %}
+<p class="tabs"><a class="button secondary" href="/c/{{ c }}/topic/{{ topic.name | urlencode }}/produce">Produce &rarr;</a></p>
+{% endif %}
+
+<form id="scan-form" class="panel" onsubmit="startScan(event)">
+    <div class="row">
+        <label>Start
+            <select name="start" id="start" onchange="syncStartFields()">
+                <option value="latest">Most recent</option>
+                <option value="earliest">Beginning of topic</option>
+                <option value="timestamp">From a time</option>
+            </select>
+        </label>
+        <label id="lookback-field">Scan last
+            <input type="number" name="lookback" value="1000" min="100" step="100">
+        </label>
+        <label id="timestamp-field" hidden>From (UTC)
+            <input type="datetime-local" name="timestamp" step="1">
+        </label>
+        <label>Partition
+            <select name="partition">
+                <option value="">All</option>
+                {% for p in topic.partitions %}<option value="{{ p.id }}">{{ p.id }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Stop after
+            <input type="number" name="limit" value="100" min="10" max="1000" step="10">
+        </label>
+    </div>
+
+    <div class="row">
+        <label>Key contains <input name="key_contains" placeholder="any"></label>
+        <label>Value contains <input name="value_contains" placeholder="any"></label>
+        <label>Header <input name="header_key" placeholder="name"></label>
+        <label>= <input name="header_value" placeholder="any value"></label>
+    </div>
+
+    <div class="row">
+        <label>JSON path <input name="json_path" placeholder="e.g. order.status"></label>
+        <label>= <input name="json_value" placeholder="any value"></label>
+        <div class="actions">
+            <button type="submit" id="run-btn">Search</button>
+            <button type="button" id="tail-btn" class="secondary" onclick="startTail()">Live tail</button>
+            <button type="button" id="stop-btn" class="secondary" onclick="stopScan()" hidden>Stop</button>
+        </div>
+    </div>
+</form>
+
+<div id="status" class="status" hidden></div>
+<div id="results"></div>
+
+<script>
+let source = null;
+
+function syncStartFields() {
+    const mode = document.getElementById('start').value;
+    document.getElementById('lookback-field').hidden = mode !== 'latest';
+    document.getElementById('timestamp-field').hidden = mode !== 'timestamp';
+}
+
+function setRunning(running) {
+    document.getElementById('run-btn').disabled = running;
+    document.getElementById('tail-btn').disabled = running;
+    document.getElementById('stop-btn').hidden = !running;
+}
+
+function status(text, kind) {
+    const el = document.getElementById('status');
+    el.hidden = false;
+    el.textContent = text;
+    el.className = 'status' + (kind ? ' ' + kind : '');
+}
+
+function stopScan() {
+    if (source) { source.close(); source = null; }
+    setRunning(false);
+}
+
+function startScan(event) {
+    if (event) event.preventDefault();
+    stopScan();
+
+    const results = document.getElementById('results');
+    results.innerHTML = '';
+
+    const form = new FormData(document.getElementById('scan-form'));
+    const params = new URLSearchParams();
+    for (const [k, v] of form.entries()) { if (v !== '') params.append(k, v); }
+
+    const topic = {{ topic.name | tojson }};
+    const cluster = {{ c | tojson }};
+    source = new EventSource(`/c/${encodeURIComponent(cluster)}/topic/${encodeURIComponent(topic)}/scan?${params}`);
+    setRunning(true);
+    status('Scanning…');
+
+    source.addEventListener('hit', (e) => {
+        results.insertAdjacentHTML('beforeend', JSON.parse(e.data).html);
+    });
+
+    source.addEventListener('progress', (e) => {
+        const d = JSON.parse(e.data);
+        status(`Scanned ${d.scanned.toLocaleString()} — ${d.hits} ${d.hits === 1 ? 'hit' : 'hits'}…`);
+    });
+
+    source.addEventListener('done', (e) => {
+        const d = JSON.parse(e.data);
+        const none = d.hits === 0 ? ' No matches.' : '';
+        status(`Scanned ${d.scanned.toLocaleString()} — ${d.hits} ${d.hits === 1 ? 'hit' : 'hits'}. ${d.reason}.${none}`);
+        stopScan();
+    });
+
+    source.addEventListener('failed', (e) => {
+        status(JSON.parse(e.data).message, 'error');
+        stopScan();
+    });
+
+    // A transport-level error (server gone) fires onerror; a clean close does not.
+    source.onerror = () => {
+        if (source && source.readyState === EventSource.CLOSED) {
+            status('Connection lost.', 'error');
+            stopScan();
+        }
+    };
+}
+
+function startTail() {
+    stopScan();
+
+    const results = document.getElementById('results');
+    results.innerHTML = '';
+
+    const form = new FormData(document.getElementById('scan-form'));
+    const params = new URLSearchParams();
+    // Only the partition and filter fields matter to a tail; the window fields are
+    // ignored server-side, so it's fine to pass whatever is set.
+    for (const [k, v] of form.entries()) { if (v !== '') params.append(k, v); }
+
+    const topic = {{ topic.name | tojson }};
+    const cluster = {{ c | tojson }};
+    source = new EventSource(`/c/${encodeURIComponent(cluster)}/topic/${encodeURIComponent(topic)}/tail?${params}`);
+    setRunning(true);
+    status('Live tail — waiting for new messages…', 'tail');
+
+    source.addEventListener('hit', (e) => {
+        // Measure before inserting: is the view already parked at the bottom? If the
+        // user has scrolled up to read an earlier message, don't yank them back down —
+        // resume following only once they scroll back to the bottom themselves.
+        const following = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 120);
+        results.insertAdjacentHTML('beforeend', JSON.parse(e.data).html);
+        // Cap the DOM on a busy topic so a long-running tail can't grow unbounded.
+        const MAX = 500;
+        while (results.children.length > MAX) results.removeChild(results.firstElementChild);
+        if (following) window.scrollTo(0, document.body.scrollHeight);  // pin to newest
+    });
+
+    source.addEventListener('progress', (e) => {
+        const d = JSON.parse(e.data);
+        const n = d.hits.toLocaleString();
+        status(`Live tail — ${n} new ${d.hits === 1 ? 'message' : 'messages'} so far…`, 'tail');
+    });
+
+    source.addEventListener('failed', (e) => {
+        status(JSON.parse(e.data).message, 'error');
+        stopScan();
+    });
+
+    source.onerror = () => {
+        if (source && source.readyState === EventSource.CLOSED) {
+            status('Connection lost.', 'error');
+            stopScan();
+        }
+    };
+}
+
+syncStartFields();
+startScan();  // land on the page with the most recent messages already loading
+</script>
+{% endblock %}

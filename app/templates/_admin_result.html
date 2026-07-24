@@ -1,0 +1,22 @@
+{% if error %}
+<div class="status error">{{ error }}</div>
+{% elif created %}
+<div class="status ok">
+    Created <b>{{ created }}</b> &middot;
+    <a href="/c/{{ c }}/topic/{{ created | urlencode }}">open it</a> &middot;
+    <a href="/c/{{ c }}/">back to topics</a>
+</div>
+{% elif deleted %}
+<div class="status ok">
+    Deleted topic <b>{{ deleted }}</b> &middot; <a href="/c/{{ c }}/">back to topics</a>
+</div>
+{% elif purged is defined %}
+<div class="status ok">
+    Purged <b>{{ purged }}</b> — {{ count | thousands }} record(s) removed &middot;
+    <a href="{{ reload_url }}">reload</a>
+</div>
+{% elif configured %}
+<div class="status ok">
+    Updated <b>{{ configured }}</b> &middot; <a href="{{ reload_url }}">reload</a>
+</div>
+{% endif %}

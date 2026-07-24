@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PageView",
+  "description": "A page-view event — the JSON Schema example for kafkascope's schema-aware produce.",
+  "type": "object",
+  "required": ["event_id", "url", "ts"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "url": { "type": "string" },
+    "referrer": { "type": ["string", "null"] },
+    "method": { "type": "string", "enum": ["GET", "POST"] },
+    "user": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "anonymous": { "type": "boolean" }
+      }
+    },
+    "ts": { "type": "integer", "description": "epoch milliseconds" }
+  }
+}

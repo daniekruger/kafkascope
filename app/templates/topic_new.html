@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}New topic &middot; kafkascope{% endblock %}
+{% block content %}
+
+<p class="crumb"><a href="/c/{{ c }}/">Topics</a> / new</p>
+<h1>Create a topic</h1>
+
+<form class="panel" hx-post="/c/{{ c }}/topics/new" hx-target="#result" hx-swap="innerHTML">
+    <div class="row">
+        <label>Name
+            <input name="name" required autofocus autocomplete="off" placeholder="my.topic.name">
+        </label>
+        <label>Partitions
+            <input type="number" name="partitions" value="1" min="1">
+        </label>
+        <label>Replication factor
+            <input type="number" name="replication_factor" value="1" min="1">
+        </label>
+    </div>
+
+    <h3>Configuration <span class="hint">optional; leave blank for broker defaults</span></h3>
+    <div class="row">
+        {% for key, label, hint in common_configs %}
+        <label>{{ label }}
+            <input name="cfg:{{ key }}" placeholder="{{ hint or 'default' }}" autocomplete="off">
+        </label>
+        {% endfor %}
+    </div>
+
+    <div class="row">
+        <div class="actions">
+            <button type="submit">Create topic</button>
+            <a class="button secondary" href="/c/{{ c }}/">Cancel</a>
+        </div>
+    </div>
+</form>
+
+<div id="result"></div>
+{% endblock %}

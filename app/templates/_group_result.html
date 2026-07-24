@@ -1,0 +1,13 @@
+{% if error %}
+<div class="status error">{{ error }}</div>
+{% elif deleted %}
+<div class="status ok">
+    Deleted group <b>{{ deleted }}</b> &middot; <a href="/c/{{ c }}/groups">back to groups</a>
+</div>
+{% else %}
+<div class="status ok">
+    Reset {{ applied | length }} partition(s) of <b>{{ group_id }}</b>:
+    {% for o in applied %}<span class="coord">p{{ o.partition }}&rarr;{{ o.committed }}</span> {% endfor %}
+    &middot; <a href="/c/{{ c }}/group/{{ group_id | urlencode }}">reload</a>
+</div>
+{% endif %}

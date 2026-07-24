@@ -1,0 +1,36 @@
+{# The refreshable part of the overview: the topic count and table. Rendered inline
+   and returned on its own by /topics/refresh. Each message-count cell keeps its lazy
+   `revealed` trigger, so after a swap only the rows on screen re-fetch their count. #}
+<p class="count-line">{{ topics | length }} topic{{ '' if topics | length == 1 else 's' }}</p>
+<table id="topics">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th class="num">Partitions</th>
+            <th class="num">Replication</th>
+            {% if show_counts %}<th class="num">Messages</th>{% endif %}
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for t in topics %}
+        <tr data-name="{{ t.name }}"{% if t.internal %} class="internal"{% endif %}>
+            <td><a href="/c/{{ c }}/topic/{{ t.name | urlencode }}">{{ t.name }}</a></td>
+            <td class="num">{{ t.partition_count }}</td>
+            <td class="num">{{ t.replication_factor }}</td>
+            {% if show_counts %}
+            <td class="num">
+                {% if t.internal %}&mdash;
+                {% else %}<span hx-get="/c/{{ c }}/topic/{{ t.name | urlencode }}/count"
+                                hx-trigger="revealed" hx-swap="innerHTML"
+                                class="muted">…</span>{% endif %}
+            </td>
+            {% endif %}
+            <td>
+                {% if t.internal %}<span class="badge muted">internal</span>{% endif %}
+                {% if t.under_replicated %}<span class="badge warn">under-replicated</span>{% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section>
+    <h1>Cluster</h1>
+    <table>
+        <thead>
+            <tr><th>Broker</th><th>Host</th><th>Port</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+        {% for b in brokers %}
+            <tr>
+                <td>{{ b.id }}</td>
+                <td>{{ b.host }}</td>
+                <td>{{ b.port }}</td>
+                <td>{% if b.is_controller %}<span class="badge">controller</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <div class="page-head">
+        <h1>Topics</h1>
+        {% set refresh_url = "/c/" ~ c ~ "/topics/refresh" %}
+        {% set refresh_target = "overview-live" %}
+        {% set refresh_key = "kafkascope-refresh-overview" %}
+        {% include "_autorefresh.html" %}
+        {% if can_write %}<a class="button new-topic" href="/c/{{ c }}/topics/new">+ New topic</a>{% endif %}
+    </div>
+    <input class="filter" type="search" placeholder="Filter topics&hellip;" autofocus
+           oninput="filterTopics(this.value)">
+    <div id="overview-live">
+        {% include "_overview_topics.html" %}
+    </div>
+</section>
+
+<script>
+function filterTopics(q) {
+    const needle = q.toLowerCase();
+    for (const row of document.querySelectorAll('#topics tbody tr')) {
+        row.hidden = !row.dataset.name.toLowerCase().includes(needle);
+    }
+}
+// After an auto-refresh swaps the table, re-apply whatever filter is typed.
+document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.target.id === 'overview-live') {
+        const f = document.querySelector('.filter');
+        if (f && f.value) filterTopics(f.value);
+    }
+});
+</script>
+{% endblock %}

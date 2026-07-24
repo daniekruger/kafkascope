@@ -1,0 +1,7 @@
+-r requirements-dev.txt
+# Browser smoke test only. Kept separate from requirements-dev.txt so the fast unit
+# suite (./run-tests.sh) doesn't pull a ~100MB browser download.
+# playwright is pinned to match the browsers in run-smoke.sh's Docker image; bump both
+# together (image tag vX.Y.Z-jammy ⇔ playwright==X.Y.Z).
+pytest-playwright==0.5.2
+playwright==1.47.0

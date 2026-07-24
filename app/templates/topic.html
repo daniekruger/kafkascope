@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.name }} &middot; kafkascope{% endblock %}
+{% block content %}
+
+<p class="crumb"><a href="/c/{{ c }}/">Topics</a> / {{ topic.name }}</p>
+<div class="page-head">
+    <h1>{{ topic.name }}</h1>
+    {% set refresh_url = "/c/" ~ c ~ "/topic/" ~ (topic.name | urlencode) ~ "/refresh" %}
+    {% set refresh_target = "topic-live" %}
+    {% set refresh_key = "kafkascope-refresh-topic" %}
+    {% include "_autorefresh.html" %}
+</div>
+
+<p class="tabs">
+    <a class="button" href="/c/{{ c }}/topic/{{ topic.name | urlencode }}/messages">Browse messages &rarr;</a>
+    {% if can_write %}
+    <a class="button secondary" href="/c/{{ c }}/topic/{{ topic.name | urlencode }}/produce">Produce &rarr;</a>
+    {% endif %}
+</p>
+
+<div id="topic-live">
+    {% include "_topic_live.html" %}
+</div>
+
+<section>
+    <h2>Configuration <span class="count">non-default</span></h2>
+    {% if not topic.config %}<p class="muted">Everything is at the broker default.</p>{% endif %}
+
+    {% if not can_write %}
+    {% if topic.config %}
+    <table>
+        <tbody>
+        {% for k, v in topic.config.items() %}
+            <tr><td class="key">{{ k }}</td><td>{{ v }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% else %}
+    <form class="panel" hx-post="/c/{{ c }}/topic/{{ topic.name | urlencode }}/config"
+          hx-target="#result" hx-swap="innerHTML">
+        {% for k, v in topic.config.items() %}
+        <div class="row cfg-row">
+            <label>{{ k }}
+                <input name="cfg:{{ k }}" value="{{ v }}" autocomplete="off">
+            </label>
+            <span class="hint">clear the value to reset to default</span>
+        </div>
+        {% endfor %}
+        <div class="row cfg-row">
+            <label>Add / override
+                <input id="new-cfg-key" placeholder="config key, e.g. retention.ms" autocomplete="off">
+            </label>
+            <label>Value
+                <input id="new-cfg-val" placeholder="value" autocomplete="off">
+            </label>
+            <div class="actions"><button type="button" class="secondary" onclick="addCfgRow()">Add</button></div>
+        </div>
+        <div id="extra-cfg"></div>
+        <div class="row">
+            <div class="actions"><button type="submit">Save configuration</button></div>
+        </div>
+    </form>
+    {% endif %}
+</section>
+
+{% if can_write %}
+<section>
+    <h2>Administration</h2>
+
+    <form class="panel" hx-post="/c/{{ c }}/topic/{{ topic.name | urlencode }}/partitions"
+          hx-target="#result" hx-swap="innerHTML">
+        <h3>Add partitions</h3>
+        <p class="note">
+            Currently {{ topic.partitions | length }}. Increasing is permanent — Kafka
+            cannot remove partitions, and it changes how keys hash to partitions.
+        </p>
+        <div class="row">
+            <label>New total
+                <input type="number" name="total" min="{{ topic.partitions | length + 1 }}"
+                       value="{{ topic.partitions | length + 1 }}">
+            </label>
+            <div class="actions"><button type="submit">Add partitions</button></div>
+        </div>
+    </form>
+
+    <form class="panel danger" hx-post="/c/{{ c }}/topic/{{ topic.name | urlencode }}/purge"
+          hx-target="#result" hx-swap="innerHTML">
+        <h3>Purge records</h3>
+        <p class="note">
+            Deletes all {{ topic.size | thousands }} record(s). The topic, its partitions
+            and its config stay; only the data is discarded. No undo.
+        </p>
+        <div class="row">
+            <label>Type <code>{{ topic.name }}</code> to confirm
+                <input name="confirm" autocomplete="off" placeholder="{{ topic.name }}">
+            </label>
+            <div class="actions"><button type="submit" class="danger-btn">Purge records</button></div>
+        </div>
+    </form>
+
+    <form class="panel danger" hx-post="/c/{{ c }}/topic/{{ topic.name | urlencode }}/delete"
+          hx-target="#result" hx-swap="innerHTML">
+        <h3>Delete topic</h3>
+        <p class="note">Removes the topic and all its data entirely. No undo.</p>
+        <div class="row">
+            <label>Type <code>{{ topic.name }}</code> to confirm
+                <input name="confirm" autocomplete="off" placeholder="{{ topic.name }}">
+            </label>
+            <div class="actions"><button type="submit" class="danger-btn">Delete topic</button></div>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<div id="result"></div>
+
+<script>
+function addCfgRow() {
+    const key = document.getElementById('new-cfg-key');
+    const val = document.getElementById('new-cfg-val');
+    if (!key.value.trim()) return;
+    const div = document.createElement('div');
+    div.className = 'row cfg-row';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'cfg:' + key.value.trim();
+    input.value = val.value;
+    div.append(input, document.createTextNode(key.value.trim() + ' = ' + (val.value || '(default)')));
+    document.getElementById('extra-cfg').append(div);
+    key.value = ''; val.value = '';
+}
+</script>
+{% endblock %}

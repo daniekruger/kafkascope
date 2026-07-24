@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ group.id }} &middot; kafkascope{% endblock %}
+{% block content %}
+
+<p class="crumb"><a href="/c/{{ c }}/groups">Consumer groups</a> / {{ group.id }}</p>
+<div class="page-head">
+    <h1>{{ group.id }}</h1>
+    {% set refresh_url = "/c/" ~ c ~ "/group/" ~ (group.id | urlencode) ~ "/refresh" %}
+    {% set refresh_target = "group-live" %}
+    {% set refresh_key = "kafkascope-refresh-group" %}
+    {% include "_autorefresh.html" %}
+</div>
+
+<div id="group-live">
+    {% include "_group_live.html" %}
+</div>
+
+{% if can_write %}
+<section>
+    <h2>Danger zone</h2>
+
+    {% if not group.is_empty %}
+    <p class="note warn-note">
+        This group has {{ group.members | length }} active member(s). Kafka refuses to
+        move offsets or delete a group while consumers are attached — stop them first.
+    </p>
+    {% endif %}
+
+    <form class="panel danger" hx-post="/c/{{ c }}/group/{{ group.id | urlencode }}/reset"
+          hx-target="#result" hx-swap="innerHTML">
+        <h3>Reset offsets</h3>
+        <p class="note">
+            Moving offsets backwards causes reprocessing; forwards silently skips
+            messages. There is no undo.
+        </p>
+        <div class="row">
+            <label>Topic
+                <select name="topic" required>
+                    {% for t in group.topics %}<option value="{{ t }}" selected>{{ t }}</option>{% endfor %}
+                    {% for t in all_topics %}{% if t not in group.topics %}<option value="{{ t }}">{{ t }}</option>{% endif %}{% endfor %}
+                </select>
+            </label>
+            <label>Partition
+                <input name="partition" placeholder="all" size="4">
+            </label>
+            <label>To
+                <select name="target" id="target" onchange="syncReset()">
+                    <option value="earliest">Earliest</option>
+                    <option value="latest">Latest</option>
+                    <option value="timestamp">A point in time</option>
+                    <option value="offset">A specific offset</option>
+                </select>
+            </label>
+            <label id="ts-field" hidden>Time (UTC)
+                <input type="datetime-local" name="timestamp" step="1">
+            </label>
+            <label id="off-field" hidden>Offset
+                <input type="number" name="offset" min="0">
+            </label>
+        </div>
+        <div class="row">
+            <label>Type <code>{{ group.id }}</code> to confirm
+                <input name="confirm" autocomplete="off" placeholder="{{ group.id }}">
+            </label>
+            <div class="actions"><button type="submit" class="danger-btn">Reset offsets</button></div>
+        </div>
+    </form>
+
+    <form class="panel danger" hx-post="/c/{{ c }}/group/{{ group.id | urlencode }}/delete"
+          hx-target="#result" hx-swap="innerHTML">
+        <h3>Delete group</h3>
+        <p class="note">Removes the group and every committed offset it holds.</p>
+        <div class="row">
+            <label>Type <code>{{ group.id }}</code> to confirm
+                <input name="confirm" autocomplete="off" placeholder="{{ group.id }}">
+            </label>
+            <div class="actions"><button type="submit" class="danger-btn">Delete group</button></div>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<div id="result"></div>
+
+<script>
+function syncReset() {
+    const t = document.getElementById('target').value;
+    document.getElementById('ts-field').hidden = t !== 'timestamp';
+    document.getElementById('off-field').hidden = t !== 'offset';
+}
+syncReset();
+</script>
+{% endblock %}

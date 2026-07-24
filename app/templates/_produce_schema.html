@@ -1,0 +1,18 @@
+{% if error %}
+<div class="status error">{{ error }}</div>
+{% elif fmt in ('avro', 'json') %}
+<div class="row">
+    <label>{{ 'Avro' if fmt == 'avro' else 'JSON' }} schema for <code>{{ subject }}</code>
+        {% if registered %}<span class="hint">registered: id #{{ registered.schema_id }}</span>
+        {% else %}<span class="hint">none registered yet — paste one and tick Register</span>{% endif %}
+        <textarea name="{{ field }}_schema_text" rows="8" spellcheck="false"
+                  placeholder='{"type": "record", "name": "...", "fields": [...]}'>{{ registered.schema_str if registered else '' }}</textarea>
+    </label>
+</div>
+<div class="row checks">
+    <label class="check"><input type="checkbox" name="{{ field }}_register" value="1"
+        {% if not registered %}checked{% endif %}>
+        Register this schema{% if registered %} as a new version{% endif %}</label>
+</div>
+<p class="hint">The {{ field }} must be JSON matching this schema.</p>
+{% endif %}

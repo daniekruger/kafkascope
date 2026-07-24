@@ -1,0 +1,10 @@
+{% if error %}
+<div class="status error">Not sent — {{ error }}</div>
+{% else %}
+<div class="status ok">
+    Delivered to <span class="coord">p{{ delivery.partition }}@{{ delivery.offset }}</span>
+    {% if delivery.key_schema_id is not none %}&middot; key {{ delivery.key_encoding }} #{{ delivery.key_schema_id }}{% endif %}
+    {% if delivery.schema_id is not none %}&middot; value {{ delivery.encoding }} #{{ delivery.schema_id }}{% endif %}
+    &middot; <a href="/c/{{ c }}/topic/{{ delivery.topic | urlencode }}/messages">view in messages</a>
+</div>
+{% endif %}

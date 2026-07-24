@@ -1,0 +1,76 @@
+# Self-contained stack: a single-node Kafka (KRaft, no ZooKeeper) plus kafkascope.
+# Nothing else required — just:
+#
+#   docker compose up -d      then open http://localhost:8080
+#
+# This builds kafkascope from the source in this repo. To run the published image
+# instead, comment out `build: .` and uncomment the `image:` line.
+#
+# Already have a broker running (so this bundled one would clash)? Point kafkascope at
+# it instead: set KAFKA_BROKERCONNECT on the kafkascope service, drop the `kafka` service
+# and its depends_on, and start just kafkascope.
+name: kafkascope
+
+services:
+    kafka:
+        image: apache/kafka:3.8.1
+        container_name: kafkascope-kafka
+        ports:
+            # Host tools (kafka CLI, your app) can reach the broker at localhost:29092;
+            # kafkascope reaches it in-network at kafka:9092. Override the host port with
+            # KAFKA_HOST_PORT if 29092 is already taken.
+            - "${KAFKA_HOST_PORT:-29092}:29092"
+        environment:
+            KAFKA_NODE_ID: 1
+            KAFKA_PROCESS_ROLES: broker,controller
+            KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:29092
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+            KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+            KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+            KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+            KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+            KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        healthcheck:
+            test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 15
+            start_period: 15s
+
+    # Optional Confluent Schema Registry, for decoding Avro/Protobuf/JSON payloads.
+    # Off by default; start it with:  docker compose --profile schema-registry up -d
+    # kafkascope is already pointed at it (KAFKASCOPE_SCHEMA_REGISTRY_URL below).
+    schema-registry:
+        image: confluentinc/cp-schema-registry:7.7.1
+        container_name: kafkascope-schema-registry
+        profiles: ["schema-registry"]
+        depends_on:
+            kafka:
+                condition: service_healthy
+        ports:
+            # Reachable on the host at localhost:8087 (override with SCHEMA_REGISTRY_HOST_PORT).
+            - "${SCHEMA_REGISTRY_HOST_PORT:-8087}:8081"
+        environment:
+            SCHEMA_REGISTRY_HOST_NAME: schema-registry
+            SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+            SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+
+    kafkascope:
+        build: .
+        # image: daniekruger/kafkascope:latest
+        container_name: kafkascope
+        depends_on:
+            kafka:
+                condition: service_healthy
+        ports:
+            # Override the host port with KAFKASCOPE_PORT if 8080 is already taken.
+            - "${KAFKASCOPE_PORT:-8080}:9000"
+        environment:
+            KAFKA_BROKERCONNECT: kafka:9092
+            KAFKASCOPE_CLUSTER_NAME: local
+            # Harmless when the registry isn't running (only registry-encoded messages
+            # ever call it). Start it with the schema-registry profile above.
+            KAFKASCOPE_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+            # KAFKASCOPE_READONLY: "true"   # uncomment to make this instance read-only

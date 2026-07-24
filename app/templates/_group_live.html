@@ -1,0 +1,65 @@
+{# The refreshable part of a consumer group: state, total lag, offsets, members.
+   Rendered inline on the group page and returned on its own by the /refresh endpoint,
+   so an auto-refresh swaps just this region and leaves the danger-zone forms alone. #}
+<p class="group-summary">
+    <span class="badge state-{{ group.state | lower }}">{{ group.state | lower }}</span>
+    <span class="count">{{ group.total_lag | thousands }} total lag</span>
+    {% if group.coordinator %}<span class="note">Coordinator {{ group.coordinator }}</span>{% endif %}
+</p>
+
+<section>
+    <h2>Offsets &amp; lag</h2>
+    {% if group.offsets %}
+    <table>
+        <thead>
+            <tr>
+                <th>Topic</th>
+                <th class="num">Partition</th>
+                <th class="num">Committed</th>
+                <th class="num">End offset</th>
+                <th class="num">Lag</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for o in group.offsets %}
+            <tr>
+                <td><a href="/c/{{ c }}/topic/{{ o.topic | urlencode }}">{{ o.topic }}</a></td>
+                <td class="num">{{ o.partition }}</td>
+                <td class="num">{% if o.has_offset %}{{ o.committed | thousands }}{% else %}<span class="muted">none</span>{% endif %}</td>
+                <td class="num">{{ o.high | thousands }}</td>
+                <td class="num">{% if o.lag is none %}<span class="muted">&mdash;</span>
+                    {% elif o.lag > 0 %}<span class="lag">{{ o.lag | thousands }}</span>
+                    {% else %}0{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="muted">This group has no committed offsets.</p>
+    {% endif %}
+</section>
+
+<section>
+    <h2>Members</h2>
+    {% if group.members %}
+    <table>
+        <thead>
+            <tr><th>Client</th><th>Host</th><th>Assignment</th></tr>
+        </thead>
+        <tbody>
+        {% for m in group.members %}
+            <tr>
+                <td>{{ m.client_id }}<br><span class="muted mono">{{ m.member_id }}</span></td>
+                <td class="mono">{{ m.host }}</td>
+                <td class="mono">
+                    {% for t, p in m.assignment %}<span class="hdr">{{ t }}#{{ p }}</span> {% endfor %}
+                    {% if not m.assignment %}<span class="muted">none</span>{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No active members — this group is safe to reset or delete.</p>
+    {% endif %}
+</section>

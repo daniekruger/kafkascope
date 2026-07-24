@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Produce to {{ topic.name }} &middot; kafkascope{% endblock %}
+{% block content %}
+
+<p class="crumb"><a href="/c/{{ c }}/">Topics</a> / <a href="/c/{{ c }}/topic/{{ topic.name | urlencode }}">{{ topic.name }}</a> / produce</p>
+<h1>
+    {% if prefill %}Resend to {{ topic.name }}{% else %}Produce to {{ topic.name }}{% endif %}
+</h1>
+
+{% if prefill %}
+<p class="note">
+    Prefilled from <span class="coord">p{{ prefill.partition }}@{{ prefill.offset }}</span>.
+    Sending appends a new message — the original stays where it is.
+</p>
+{% if prefill.binary %}
+<p class="note warn-note">
+    That message had a binary payload, shown here base64-encoded. Sending as-is writes
+    the base64 <em>text</em>, not the original bytes.
+</p>
+{% endif %}
+{% endif %}
+
+<form class="panel" hx-post="/c/{{ c }}/topic/{{ topic.name | urlencode }}/produce" hx-target="#result" hx-swap="innerHTML">
+    <div class="row">
+        <label>Key
+            <input name="key" value="{{ prefill.key if prefill and prefill.key is not none else '' }}"
+                   placeholder="null unless set">
+        </label>
+        <label>Partition
+            <select name="partition">
+                <option value="">Auto (hash of key)</option>
+                {% for p in topic.partitions %}<option value="{{ p.id }}">{{ p.id }}</option>{% endfor %}
+            </select>
+        </label>
+    </div>
+
+    {% if registry_configured %}
+    <div class="row">
+        <label>Key encoding
+            <select name="key_format"
+                    hx-get="/c/{{ c }}/topic/{{ topic.name | urlencode }}/produce/schema"
+                    hx-vals='{"field": "key"}'
+                    hx-target="#key-schema-panel" hx-swap="innerHTML"
+                    hx-trigger="load, change" hx-include="this">
+                <option value="raw">Raw (string)</option>
+                <option value="avro">Avro (schema registry)</option>
+                <option value="json">JSON Schema (registry)</option>
+            </select>
+        </label>
+    </div>
+    <div id="key-schema-panel"></div>
+    {% else %}
+    <input type="hidden" name="key_format" value="raw">
+    {% endif %}
+
+    <div class="row checks">
+        <label class="check"><input type="checkbox" name="null_key" value="1"
+            {% if prefill and prefill.key is none %}checked{% endif %}> Null key</label>
+        <label class="check"><input type="checkbox" name="tombstone" value="1"
+            {% if prefill and prefill.is_tombstone %}checked{% endif %}> Send as tombstone (null value)</label>
+    </div>
+
+    {% if registry_configured %}
+    {% set fmt = 'avro' if prefill and prefill.encoding == 'avro' else ('json' if prefill and prefill.encoding == 'json-schema' else 'raw') %}
+    <div class="row">
+        <label>Value encoding
+            <select name="value_format" id="value_format"
+                    hx-get="/c/{{ c }}/topic/{{ topic.name | urlencode }}/produce/schema"
+                    hx-vals='{"field": "value"}'
+                    hx-target="#value-schema-panel" hx-swap="innerHTML"
+                    hx-trigger="load, change" hx-include="this">
+                <option value="raw" {% if fmt == 'raw' %}selected{% endif %}>Raw (string / JSON text)</option>
+                <option value="avro" {% if fmt == 'avro' %}selected{% endif %}>Avro (schema registry)</option>
+                <option value="json" {% if fmt == 'json' %}selected{% endif %}>JSON Schema (registry)</option>
+            </select>
+        </label>
+    </div>
+    <div id="value-schema-panel"></div>
+    {% else %}
+    <input type="hidden" name="value_format" value="raw">
+    {% endif %}
+
+    <div class="row">
+        <label>Value
+            <textarea name="value" rows="12" spellcheck="false"
+                      placeholder="Message payload">{{ prefill.pretty or prefill.value if prefill and prefill.value is not none else '' }}</textarea>
+        </label>
+    </div>
+
+    <div class="row">
+        <label>Headers <span class="hint">one per line, <code>name: value</code></span>
+            <textarea name="headers" rows="3" spellcheck="false" placeholder="trace-id: abc123">
+{%- for k, v in (prefill.headers if prefill else []) %}{{ k }}: {{ v }}
+{% endfor %}</textarea>
+        </label>
+    </div>
+
+    <div class="row">
+        <div class="actions">
+            <button type="submit">Send</button>
+            <a class="button secondary" href="/c/{{ c }}/topic/{{ topic.name | urlencode }}/messages">Back to messages</a>
+        </div>
+    </div>
+</form>
+
+<div id="result"></div>
+{% endblock %}

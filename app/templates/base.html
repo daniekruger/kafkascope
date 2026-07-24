@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}kafkascope{% endblock %}</title>
+    <script>
+    // Set the theme before the stylesheet paints, so there's no flash of the wrong one.
+    (function () {
+        try {
+            var t = localStorage.getItem('kafkascope-theme')
+                || ((window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+            document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    })();
+    </script>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/htmx.min.js" defer></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
+    <header>
+        <a class="brand" href="/c/{{ c }}/">kafkascope</a>
+        <nav><a href="/c/{{ c }}/">Topics</a><a href="/c/{{ c }}/groups">Groups</a></nav>
+        {% if multi_cluster %}
+        <select class="cluster-picker" title="Switch cluster"
+                onchange="if (this.value) location.href = '/c/' + encodeURIComponent(this.value) + '/';">
+            {% for cl in clusters %}
+            <option value="{{ cl.name }}" {% if cl.name == c %}selected{% endif %}>{{ cl.name }}{% if cl.readonly %} · read-only{% endif %}</option>
+            {% endfor %}
+        </select>
+        {% else %}
+        <span class="cluster">{{ cluster_name }}</span>
+        {% endif %}
+        <span class="cluster-broker">{{ broker_connect }}</span>
+        {% if readonly %}<span class="badge readonly">read-only</span>{% endif %}
+        {% if principal and not principal.anonymous %}
+        <span class="whoami">{{ principal.name }}
+            <span class="badge {{ 'state-stable' if principal.role == 'admin' else 'muted' }}">{{ principal.role }}</span>
+        </span>
+        {% endif %}
+        <button id="theme-toggle" class="theme-toggle" type="button"
+                title="Toggle light / dark theme" aria-label="Toggle theme"
+                onclick="toggleTheme()"></button>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="app-footer">
+        <a href="/version" title="Version details (JSON)">kafkascope v{{ version }}</a>
+    </footer>
+    <script>
+    function toggleTheme() {
+        var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('kafkascope-theme', next); } catch (e) {}
+        setThemeIcon(next);
+    }
+    function setThemeIcon(t) {
+        var b = document.getElementById('theme-toggle');
+        if (b) b.textContent = t === 'light' ? '☾' : '☀';  // show the mode you'll switch to
+    }
+    setThemeIcon(document.documentElement.getAttribute('data-theme'));
+    </script>
+</body>
+</html>

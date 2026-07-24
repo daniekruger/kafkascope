@@ -1,0 +1,48 @@
+{# Reusable auto-refresh control. Set these before including it:
+     refresh_url    — GET endpoint returning the fragment to swap in
+     refresh_target — id of the element to swap
+     refresh_key    — localStorage key so the interval persists across pages
+   Polls client-side via htmx.ajax; "Off" (the default) means no polling at all. #}
+<div class="autorefresh">
+    <label>Auto-refresh
+        <select id="refresh-interval">
+            <option value="0">Off</option>
+            <option value="5">5s</option>
+            <option value="10">10s</option>
+            <option value="30">30s</option>
+            <option value="60">1m</option>
+        </select>
+    </label>
+    <span id="refresh-note" class="hint"></span>
+</div>
+<script>
+(function () {
+    const KEY = {{ refresh_key | tojson }};
+    const URL = {{ refresh_url | tojson }};
+    const TARGET = {{ refresh_target | tojson }};
+    const sel = document.getElementById('refresh-interval');
+    const note = document.getElementById('refresh-note');
+    let timer = null;
+
+    function tick() {
+        // htmx loads deferred; the timer only ever fires seconds later, by which
+        // point it's ready. Guard anyway so a very fast interval can't race it.
+        if (window.htmx) htmx.ajax('GET', URL, { target: '#' + TARGET, swap: 'innerHTML' });
+    }
+
+    function apply() {
+        if (timer) { clearInterval(timer); timer = null; }
+        const s = parseInt(sel.value, 10) || 0;
+        try { localStorage.setItem(KEY, String(s)); } catch (e) {}
+        note.textContent = s > 0 ? 'every ' + (s < 60 ? s + 's' : '1m') : '';
+        if (s > 0) timer = setInterval(tick, s * 1000);
+    }
+
+    let saved = '0';
+    try { saved = localStorage.getItem(KEY) || '0'; } catch (e) {}
+    if ([...sel.options].some((o) => o.value === saved)) sel.value = saved;
+    sel.addEventListener('change', apply);
+    apply();  // honour the remembered choice on load
+    window.addEventListener('beforeunload', function () { if (timer) clearInterval(timer); });
+})();
+</script>
