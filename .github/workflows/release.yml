@@ -44,13 +44,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      # Mirror README.md to the Docker Hub repository overview so both pages match.
-      # If this step 403s, Docker Hub's description API rejected the access token —
-      # add your account password as a secret and use it here instead of the token.
-      - uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: daniekruger/kafkascope
-          short-description: "Web UI to inspect and operate Apache Kafka"
-          readme-filepath: ./README.md
+      # The Docker Hub repository description is maintained by hand (Docker Hub's
+      # description API rejects access tokens). Keep it in sync with README.md there.
